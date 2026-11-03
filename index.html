@@ -45,10 +45,10 @@ main{flex:1;position:relative;min-height:0;display:flex}
 .row{display:flex;gap:8px;align-items:center}
 label.f{display:block;font-size:12px;color:var(--mute);margin:8px 0 3px}
 input[type=text],input[type=number],select{font:inherit;font-size:16px;width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-height:40px}
-.corners{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.corners{display:grid;grid-template-columns:1fr;gap:8px;margin-top:6px}
 .corner{border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:var(--bg)}
 .corner b{font-size:12px;color:var(--mute);font-weight:600}
-.corner .two{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:3px}
+.corner .two{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:3px}
 .corner input{padding:6px 8px;min-height:36px;text-align:center}
 .corner small{display:block;text-align:center;font-size:10px;color:var(--mute)}
 .avg{margin:10px 0;border-radius:12px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;color:#102;font-weight:700}
@@ -238,7 +238,7 @@ function stats(p){
   const ts=p.c.map(x=>parseFloat(x.t)).filter(v=>!isNaN(v));
   const hs=p.c.map(x=>parseFloat(x.h)).filter(v=>!isNaN(v));
   const avg=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:null;
-  return {t:avg(ts),h:avg(hs),nt:ts.length,nh:hs.length};
+  const vs=p.c.map(x=>parseFloat(x.v)).filter(v=>!isNaN(v)); return {t:avg(ts),h:avg(hs),v:avg(vs),nt:ts.length,nh:hs.length,nv:vs.length};
 }
 function level(t){
   if(t==null) return {k:'none',color:'#9aa5b1',name:'ยังไม่มีค่า',fill:'#9aa5b1'};
@@ -248,6 +248,8 @@ function level(t){
 }
 const f1=v=>v==null?'–':v.toFixed(1);
 const meanOf=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+const vAvg=list=>meanOf(list.map(p=>stats(p).v).filter(v=>v!=null));
+function subText(st){const a=[];if(st.h!=null)a.push('RH '+Math.round(st.h)+'%');if(st.v!=null)a.push(st.v.toFixed(1)+' m/s');return a.join(' · ');}
 function labelText(p,mode){ if(mode==='off') return ''; if(mode==='ahu') return p.ahu||p.name; return (p.ahu?p.ahu+' · ':'')+p.name; }
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
@@ -311,7 +313,7 @@ function onTap(e){
   if(placing){
     const last=list[list.length-1];
     const p={id:'p'+Date.now(),ahu:last?last.ahu:'',name:'หัวจ่าย '+(S.seq++),x:pt.x,y:pt.y,r:Math.round(Math.max(W,H)*0.056),
-      c:[{t:'',h:''},{t:'',h:''},{t:'',h:''},{t:'',h:''}],by:last?last.by:'',time:''};
+      c:[{t:'',h:'',v:''},{t:'',h:'',v:''},{t:'',h:'',v:''},{t:'',h:'',v:''}],by:last?last.by:'',time:''};
     list.push(p); save(); openPanel(p.id,true);
   } else if(sel){ closePanel(); }
 }
@@ -356,9 +358,9 @@ function render(){
       const lb=el('text',{y:-26,'text-anchor':'middle','font-size':13,'font-weight':700,fill:'#0a2540','font-family':'system-ui,sans-serif','paint-order':'stroke',stroke:'#fff','stroke-width':4,'stroke-linejoin':'round'},m);
       lb.textContent=lt;
     }
-    if(st.h!=null&&mode!=='off'){
+    if(subText(st)&&mode!=='off'){
       const hh=el('text',{y:40,'text-anchor':'middle','font-size':12,'font-weight':600,fill:'#0a2540','paint-order':'stroke',stroke:'#fff','stroke-width':4,'stroke-linejoin':'round'},m);
-      hh.textContent='RH '+Math.round(st.h)+'%';
+      hh.textContent=subText(st);
     }
   });
   renderLegend();
@@ -382,11 +384,12 @@ function openPanel(id,isNew){
     </div>
     <datalist id="ahus">${['1A-14/2','1A-14/3','1A-14/5','1A-14/6','1A-14/7','1A-14/8'].concat(ahuList()).filter((v,i,a)=>a.indexOf(v)===i).map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
     <div class="avg" id="pAvg"></div>
-    <div style="font-size:12px;color:var(--mute)">วัด 4 มุมของหัวจ่าย — อุณหภูมิ (°C) / ความชื้น (%RH)</div>
+    <div style="font-size:12px;color:var(--mute)">วัด 4 มุมของหัวจ่าย — อุณหภูมิ (°C) / ความชื้น (%RH) / แรงลม (m/s)</div>
     <div class="corners">
       ${p.c.map((c,i)=>`<div class="corner"><b>${cornerNames[i]}</b><div class="two">
         <div><input type="number" inputmode="decimal" step="0.1" data-i="${i}" data-k="t" value="${c.t}" placeholder="°C"><small>°C</small></div>
         <div><input type="number" inputmode="decimal" step="1" data-i="${i}" data-k="h" value="${c.h}" placeholder="%"><small>%RH</small></div>
+        <div><input type="number" inputmode="decimal" step="0.1" min="0" data-i="${i}" data-k="v" value="${c.v==null?'':c.v}" placeholder="m/s"><small>ลม m/s</small></div>
       </div></div>`).join('')}
     </div>
     <label class="f">ขนาดโซนสีรอบหัวจ่าย</label>
@@ -405,7 +408,7 @@ function openPanel(id,isNew){
     const st=stats(p), lv=level(st.t);
     const a=$('#pAvg'); a.style.background=st.t==null?'var(--bg)':lv.color; a.style.color=st.t==null?'var(--mute)':'#102';
     a.innerHTML=`<div><div class="sub">ค่าเฉลี่ยหัวจ่าย (${st.nt}/4 มุม)</div><div class="big">${f1(st.t)}°C</div></div>
-      <div style="text-align:right"><div class="sub">ความชื้นเฉลี่ย</div><div style="font-size:22px">${st.h==null?'–':st.h.toFixed(0)+'%'}</div><div class="sub">${lv.name}</div></div>`;
+      <div style="text-align:right"><div class="sub">ความชื้นเฉลี่ย</div><div style="font-size:22px">${st.h==null?'–':st.h.toFixed(0)+'%'}</div><div class="sub">ลม ${st.v==null?'–':st.v.toFixed(1)+' m/s'}</div><div class="sub">${lv.name}</div></div>`;
   };
   upd();
   panel.querySelectorAll('.corner input').forEach(inp=>inp.addEventListener('input',()=>{
@@ -519,9 +522,9 @@ function ahuGroups(list){const g={};list.forEach(p=>{const k=p.ahu||'(ไม่�
 function sortedPts(list){return list.slice().sort((a,b)=>(a.ahu||'').localeCompare(b.ahu||'','th',{numeric:true})||a.name.localeCompare(b.name,'th',{numeric:true}));}
 function detailRows(list){
   return sortedPts(list).map(p=>{const st=stats(p),lv=level(st.t);
-    return `<tr data-id="${esc(p.id)}"><td>${esc(p.ahu)}</td><td>${esc(p.name)}</td>${p.c.map(c=>`<td class="n">${c.t===''?'–':esc(c.t)}${c.h===''?'':' <small style="color:#777">'+esc(c.h)+'%</small>'}</td>`).join('')}<td class="n"><b>${f1(st.t)}</b></td><td class="n">${st.h==null?'–':st.h.toFixed(0)+'%'}</td><td><span class="chip" style="background:${lv.color}">${lv.name}</span></td><td>${esc(p.by)}</td><td>${esc(p.time)}</td></tr>`;}).join('');
+    return `<tr data-id="${esc(p.id)}"><td>${esc(p.ahu)}</td><td>${esc(p.name)}</td>${p.c.map(c=>`<td class="n">${c.t===''?'–':esc(c.t)}${c.h===''?'':' <small style="color:#777">'+esc(c.h)+'%</small>'}${c.v==null||c.v===''?'':' <small style="color:#777">'+esc(c.v)+'m/s</small>'}</td>`).join('')}<td class="n"><b>${f1(st.t)}</b></td><td class="n">${st.h==null?'–':st.h.toFixed(0)+'%'}</td><td class="n">${st.v==null?'–':st.v.toFixed(1)}</td><td><span class="chip" style="background:${lv.color}">${lv.name}</span></td><td>${esc(p.by)}</td><td>${esc(p.time)}</td></tr>`;}).join('');
 }
-const DETAIL_HEAD='<thead><tr><th>AHU</th><th>หัวจ่าย</th><th>มุม1</th><th>มุม2</th><th>มุม3</th><th>มุม4</th><th>เฉลี่ย °C</th><th>RH เฉลี่ย</th><th>สถานะ</th><th>ผู้วัด</th><th>เวลา</th></tr></thead>';
+const DETAIL_HEAD='<thead><tr><th>AHU</th><th>หัวจ่าย</th><th>มุม1</th><th>มุม2</th><th>มุม3</th><th>มุม4</th><th>เฉลี่ย °C</th><th>RH เฉลี่ย</th><th>ลมเฉลี่ย m/s</th><th>สถานะ</th><th>ผู้วัด</th><th>เวลา</th></tr></thead>';
 function renderList(){
   const list=pts(), groups=ahuGroups(list);
   const tot=meanOf(list.map(p=>stats(p).t).filter(v=>v!=null));
@@ -531,7 +534,7 @@ function renderList(){
   Object.keys(groups).sort((a,b)=>a.localeCompare(b,'th',{numeric:true})).forEach(k=>{
     const a=meanOf(groups[k].map(p=>stats(p).t).filter(v=>v!=null)); const lv=level(a);
     const ah=meanOf(groups[k].map(p=>stats(p).h).filter(v=>v!=null));
-    h+=`<div class="cardx" style="border-left:6px solid ${lv.color}"><b>AHU ${esc(k)}</b><div class="v">${f1(a)}°C</div><small>${groups[k].length} หัวจ่าย · RH ${ah==null?'–':ah.toFixed(0)+'%'}</small></div>`;
+    h+=`<div class="cardx" style="border-left:6px solid ${lv.color}"><b>AHU ${esc(k)}</b><div class="v">${f1(a)}°C</div><small>${groups[k].length} หัวจ่าย · RH ${ah==null?'–':ah.toFixed(0)+'%'}${vAvg(groups[k])==null?'':' · ลม '+vAvg(groups[k]).toFixed(1)+' m/s'}</small></div>`;
   });
   h+=`</div><div class="toolbar">
     <button class="primary" id="bPdf">🖨 พิมพ์/PDF</button>
@@ -555,8 +558,8 @@ function focusOn(p){ sc=Math.max(sc,0.45); tx=view.clientWidth/2-p.x*sc; ty=view
 function dl(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
 function stamp(){const d=new Date();return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');}
 function exportCsv(){
-  const rows=[['แผนที่','AHU','หัวจ่าย','T1','H1','T2','H2','T3','H3','T4','H4','เฉลี่ย °C','RH เฉลี่ย %','สถานะ','ผู้วัด','เวลา']];
-  S.plans.forEach(pl=>pl.points.forEach(p=>{const st=stats(p);rows.push([pl.name,p.ahu,p.name,...p.c.flatMap(c=>[c.t,c.h]),st.t==null?'':st.t.toFixed(2),st.h==null?'':st.h.toFixed(1),level(st.t).name,p.by,p.time]);}));
+  const rows=[['แผนที่','AHU','หัวจ่าย','T1','H1','V1','T2','H2','V2','T3','H3','V3','T4','H4','V4','เฉลี่ย °C','RH เฉลี่ย %','ลมเฉลี่ย m/s','สถานะ','ผู้วัด','เวลา']];
+  S.plans.forEach(pl=>pl.points.forEach(p=>{const st=stats(p);rows.push([pl.name,p.ahu,p.name,...p.c.flatMap(c=>[c.t,c.h,c.v==null?'':c.v]),st.t==null?'':st.t.toFixed(2),st.h==null?'':st.h.toFixed(1),st.v==null?'':st.v.toFixed(2),level(st.t).name,p.by,p.time]);}));
   const csv='﻿'+rows.map(r=>r.map(v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
   dl(`temp-survey-${stamp()}.csv`,new Blob([csv],{type:'text/csv;charset=utf-8'}));
 }
@@ -597,7 +600,7 @@ function composite(plan,img,mode,maxPx){
     g.fillStyle='#102';g.font=`bold ${6*u}px ${FONT}`;g.fillText(st.t==null?'—':f1(st.t),x,y+2.2*u);
     const lt=labelText(p,mode);
     if(lt){ g.font=`bold ${6.2*u}px ${FONT}`; g.lineWidth=2.4*u; g.strokeStyle='#fff'; g.strokeText(lt,x,y-10*u); g.fillStyle='#0a2540'; g.fillText(lt,x,y-10*u); }
-    if(st.h!=null&&mode!=='off'){ g.font=`bold ${5*u}px ${FONT}`; g.lineWidth=2.2*u; g.strokeStyle='#fff'; g.strokeText('RH '+Math.round(st.h)+'%',x,y+13.5*u); g.fillStyle='#0a2540'; g.fillText('RH '+Math.round(st.h)+'%',x,y+13.5*u); }
+    if(subText(st)&&mode!=='off'){ g.font=`bold ${5*u}px ${FONT}`; g.lineWidth=2.2*u; g.strokeStyle='#fff'; g.strokeText(subText(st),x,y+13.5*u); g.fillStyle='#0a2540'; g.fillText(subText(st),x,y+13.5*u); }
   });
   return cv;
 }
@@ -623,15 +626,15 @@ async function buildPrint(opt){
     const tot=meanOf(pl.points.map(p=>stats(p).t).filter(v=>v!=null));
     const totH=meanOf(pl.points.map(p=>stats(p).h).filter(v=>v!=null));
     html+=`<section class="pp"><h1>สำรวจอุณหภูมิ/ความชื้น หัวจ่ายแอร์ — ${esc(pl.name)}</h1>
-      <div class="ps">วันที่พิมพ์ ${today} · ${pl.points.length} หัวจ่าย · อุณหภูมิเฉลี่ยทั้งผัง ${f1(tot)} °C · ความชื้นเฉลี่ย ${totH==null?'–':totH.toFixed(0)+' %RH'}</div>
+      <div class="ps">วันที่พิมพ์ ${today} · ${pl.points.length} หัวจ่าย · อุณหภูมิเฉลี่ยทั้งผัง ${f1(tot)} °C · ความชื้นเฉลี่ย ${totH==null?'–':totH.toFixed(0)+' %RH'} · ลมเฉลี่ย ${vAvg(pl.points)==null?'–':vAvg(pl.points).toFixed(1)+' m/s'}</div>
       <img class="pm" src="${url}" style="max-width:${pw-2*margin}mm;max-height:${ph-2*margin-44}mm">
       <div class="pl"><span><i style="background:#35b6ff"></i>ต่ำกว่า ${S.cfg.lo}°C (เย็น)</span><span><i style="background:#ff6fae"></i>${S.cfg.lo}–${S.cfg.hi}°C</span><span><i style="background:#ff7a45"></i>สูงกว่า ${S.cfg.hi}°C (ร้อน)</span></div></section>`;
     if(opt.tbl&&pl.points.length){
       const g=ahuGroups(pl.points);
       html+=`<section class="pp"><h1>สรุปผล — ${esc(pl.name)}</h1><div class="ps">เกณฑ์สี: ต่ำกว่า ${S.cfg.lo}°C เย็น · ${S.cfg.lo}–${S.cfg.hi}°C ปานกลาง · สูงกว่า ${S.cfg.hi}°C ร้อน</div>
-      <h2>ค่าเฉลี่ยแยกตาม AHU</h2><table><thead><tr><th>AHU</th><th>จำนวนหัวจ่าย</th><th>เฉลี่ย °C</th><th>RH เฉลี่ย</th><th>สถานะ</th></tr></thead><tbody>`+
+      <h2>ค่าเฉลี่ยแยกตาม AHU</h2><table><thead><tr><th>AHU</th><th>จำนวนหัวจ่าย</th><th>เฉลี่ย °C</th><th>RH เฉลี่ย</th><th>ลมเฉลี่ย m/s</th><th>สถานะ</th></tr></thead><tbody>`+
       Object.keys(g).sort((a,b)=>a.localeCompare(b,'th',{numeric:true})).map(k=>{const a=meanOf(g[k].map(p=>stats(p).t).filter(v=>v!=null));const ah=meanOf(g[k].map(p=>stats(p).h).filter(v=>v!=null));const lv=level(a);
-        return `<tr><td>${esc(k)}</td><td class="n">${g[k].length}</td><td class="n"><b>${f1(a)}</b></td><td class="n">${ah==null?'–':ah.toFixed(0)+'%'}</td><td><span class="chip" style="background:${lv.color}">${lv.name}</span></td></tr>`;}).join('')+
+        return `<tr><td>${esc(k)}</td><td class="n">${g[k].length}</td><td class="n"><b>${f1(a)}</b></td><td class="n">${ah==null?'–':ah.toFixed(0)+'%'}</td><td class="n">${vAvg(g[k])==null?'–':vAvg(g[k]).toFixed(1)}</td><td><span class="chip" style="background:${lv.color}">${lv.name}</span></td></tr>`;}).join('')+
       `</tbody></table><h2>รายละเอียดแต่ละหัวจ่าย</h2><table>${DETAIL_HEAD}<tbody>${detailRows(pl.points)}</tbody></table></section>`;
     }
   }
